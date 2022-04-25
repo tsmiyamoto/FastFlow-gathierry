@@ -10,10 +10,14 @@ from torchvision import transforms
 class MVTecDataset(torch.utils.data.Dataset):
     def __init__(self, root, category, input_size, is_train=True):
         self.image_transform = transforms.Compose(
+#             [
+#                 transforms.Resize(input_size),
+#                 transforms.ToTensor(),
+#                 transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+#             ]
             [
                 transforms.Resize(input_size),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+                transforms.ToTensor()
             ]
         )
         if is_train:
@@ -37,15 +41,16 @@ class MVTecDataset(torch.utils.data.Dataset):
         if self.is_train:
             return image
         else:
-            if os.path.dirname(image_file).endswith("good"):
-                target = torch.zeros([1, image.shape[-2], image.shape[-1]])
-            else:
-                target = Image.open(
-                    image_file.replace("/test/", "/ground_truth/").replace(
-                        ".png", "_mask.png"
-                    )
-                )
-                target = self.target_transform(target)
+#             if os.path.dirname(image_file).endswith("good"):
+#                 target = torch.zeros([1, image.shape[-2], image.shape[-1]])
+#             else:
+#                 target = Image.open(
+#                     image_file.replace("/test/", "/ground_truth/").replace(
+#                         ".png", "_mask.png"
+#                     )
+#                 )
+#                 target = self.target_transform(target)
+            target = torch.zeros([1, image.shape[-2], image.shape[-1]])
             return image, target
 
     def __len__(self):

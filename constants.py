@@ -16,6 +16,7 @@ MVTEC_CATEGORIES = [
     "transistor",
     "wood",
     "zipper",
+    "cover"
 ]
 
 BACKBONE_DEIT = "deit_base_distilled_patch16_384"
@@ -31,10 +32,10 @@ SUPPORTED_BACKBONES = [
 ]
 
 BATCH_SIZE = 32
-NUM_EPOCHS = 500
+NUM_EPOCHS = 250
 LR = 1e-3
 WEIGHT_DECAY = 1e-5
 
 LOG_INTERVAL = 10
-EVAL_INTERVAL = 10
+EVAL_INTERVAL = 1000000
 CHECKPOINT_INTERVAL = 10

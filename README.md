@@ -30,15 +30,18 @@ mvtec-ad
 |  |- ground_truth
 ...
 ```
+
+画像は*(1024, 1024)*にする必要あり
+
 ## Train and eval
 Take ResNet18 as example
 ```bash
 # train
-python main.py --cfg configs/resnet18.yaml --data path/to/mvtec-ad -cat [category]
+python main.py -cfg configs/resnet18.yaml --data path/to/mvtec-ad -cat [category]
 # a folder named _fastflow_experiment_checkpoints will be created automatically to save checkpoints
 
 # eval
-python main.py --cfg configs/resnet18.yaml --data path/to/mvtec-ad -cat [category] --eval -ckpt _fastflow_experiment_checkpoints/exp[index]/[epoch#].pt
+python main.py -cfg configs/resnet18.yaml --data path/to/mvtec-ad -cat [category] --eval -ckpt _fastflow_experiment_checkpoints/exp[index]/[epoch#].pt
 ```
 
 ## Performance
