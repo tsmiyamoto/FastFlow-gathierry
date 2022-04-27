@@ -96,9 +96,10 @@ def train_one_epoch(dataloader, model, optimizer, epoch):
                 )
             )
             
-def plot_anomaly(img, heat, segment, idx):
+def plot_anomaly(img, heat, segment, idx, score):
     
     fig, (ax0, ax2,ax3) = plt.subplots(ncols=3, figsize=(10, 5), facecolor='white')
+    fig.suptitle(f'Anomaly Score: {10000 - score}', fontsize=16)
     ax0.set_axis_off()
 #     ax1.set_axis_off()
     ax2.set_axis_off()
@@ -112,6 +113,7 @@ def plot_anomaly(img, heat, segment, idx):
 #     ax1.imshow(output, cmap=plt.cm.gray, interpolation='nearest')   
     ax2.imshow(heat, cmap=plt.cm.gray, interpolation='nearest')  
     ax3.imshow(segment, cmap=plt.cm.gray, interpolation='nearest')
+    
     
 #     x,y = np.where(H > threshold)
 #     ax3.scatter(y,x,color='red',s=0.1) 
@@ -148,7 +150,7 @@ def eval_once(dataloader, model):
    
     model.eval()
     auroc_metric = metrics.ROC_AUC()
-    
+    i = 0
     for data, targets in dataloader:
         data, targets = data.cuda(), targets.cuda()
         with torch.no_grad():
@@ -167,67 +169,94 @@ def eval_once(dataloader, model):
 #         outputs = ret["anomaly_map"].cpu().detach()
         outputs_original = ret["anomaly_map"].cpu().detach()
 #         print(outputs_original[0].numpy().squeeze().mean(), outputs_original[0].numpy().squeeze().max(), outputs_original[0].numpy().squeeze().min())
-        print("mean of outputs[0]", torch.mean(outputs[0] ** 2).cpu().detach())
-        i = 0
-        for output in outputs:
-#             output = output * 255
-            output = outputs[i].numpy().squeeze().astype(np.uint8)
-            
-            pred_mask = compute_mask(output, 15)
-            
-            out_original = outputs[i].numpy().squeeze()
-            
-            
-#             print("avg: ", torch.mean(outputs_original[i] ** 2))
-            
-#             print(probs[i])
-            
-#             print("mean score", out_original.mean())
-#             print("min max score", out_original.min(), out_original.max())
-            
-#             output = outputs[5].numpy().squeeze()
-#             output = (output - output.min()) / np.ptp(output)
-#             output = output * 255
-#             output = output.astype(np.uint8)
+        anomaly_score = torch.mean(outputs[0] ** 2).cpu().detach().numpy()
+        print("mean of outputs[0]", anomaly_score)
+        print("mean without 2jou: ", torch.min(outputs[0]).cpu().detach().numpy())
+#         i = 0
 
-#             score_map = gaussian_filter(output, sigma=4)
-
-#             print("mean score with gaussian filter: ", score_map.mean())
-#             print("mean score without: ", output.mean())
-
-            colormap = cv2.applyColorMap(output, cv2.COLORMAP_JET)
-    #         colormap = cv2.cvtColor(colormap, cv2.COLOR_BGR2GRAY)
-#             print("colormap", colormap.shape, colormap.dtype)
-
-
-            original_img = data[i].cpu().detach().numpy().transpose(1, 2, 0) * 255
-            original_img = original_img.astype(np.uint8)
-    #         original_img = cv2.cvtColor(original_img, cv2.COLOR_RGB2GRAY)
-#             print("original", original_img.shape, original_img.dtype)
+        pred_mask = compute_mask(outputs, 15)
+            
+        out_original = outputs.numpy().squeeze()
         
-            vis_img = mark_boundaries(original_img, pred_mask, color=(1, 0, 0), mode="thick")
+        colormap = cv2.applyColorMap(outputs.numpy().squeeze().astype(np.uint8), cv2.COLORMAP_JET)
+        print(data.size())
+        original_img = data.cpu().detach().numpy().squeeze().transpose(1, 2, 0) * 255
+        original_img = original_img.astype(np.uint8)
+        
+        vis_img = mark_boundaries(original_img, pred_mask, color=(1, 0, 0), mode="thick")
             
-            alpha = 0.3
-            gamma = 0
-            superimposed_map = cv2.addWeighted(colormap, alpha, original_img, (1 - alpha), gamma)
+        alpha = 0.3
+        gamma = 0
+        superimposed_map = cv2.addWeighted(colormap, alpha, original_img, (1 - alpha), gamma)
 
-            heatmap_output = Image.fromarray(superimposed_map)
-            heatmap_output.save(f'heatmap{i}.png')  
+        heatmap_output = Image.fromarray(superimposed_map)
+        heatmap_output.save(f'heatmap{i}.png')  
             
-            plot_anomaly(original_img, superimposed_map, vis_img, i)
-
-
-
-            dst_im = Image.fromarray(colormap)
-    #         dst_im = Image.fromarray(outputs[5].numpy().squeeze().astype(np.uint8)).convert('RGB')
-
-            dst_im.save(f'output{i}.png')  # 画像を保存
+        plot_anomaly(original_img, superimposed_map, vis_img, i, anomaly_score)
+        
+        i += 1
+        
+#         for output in outputs:
+# #             output = output * 255
+#             output = outputs[i].numpy().squeeze().astype(np.uint8)
             
-            i += 1
+#             pred_mask = compute_mask(output, 15)
             
-        outputs = outputs.flatten()
-        targets = targets.flatten()
-        auroc_metric.update((outputs, targets))
+#             out_original = outputs[i].numpy().squeeze()
+            
+            
+            
+            
+# #             print("avg: ", torch.mean(outputs_original[i] ** 2))
+            
+# #             print(probs[i])
+            
+# #             print("mean score", out_original.mean())
+# #             print("min max score", out_original.min(), out_original.max())
+            
+# #             output = outputs[5].numpy().squeeze()
+# #             output = (output - output.min()) / np.ptp(output)
+# #             output = output * 255
+# #             output = output.astype(np.uint8)
+
+# #             score_map = gaussian_filter(output, sigma=4)
+
+# #             print("mean score with gaussian filter: ", score_map.mean())
+# #             print("mean score without: ", output.mean())
+
+#             colormap = cv2.applyColorMap(output, cv2.COLORMAP_JET)
+#     #         colormap = cv2.cvtColor(colormap, cv2.COLOR_BGR2GRAY)
+# #             print("colormap", colormap.shape, colormap.dtype)
+
+
+#             original_img = data[i].cpu().detach().numpy().transpose(1, 2, 0) * 255
+#             original_img = original_img.astype(np.uint8)
+#     #         original_img = cv2.cvtColor(original_img, cv2.COLOR_RGB2GRAY)
+# #             print("original", original_img.shape, original_img.dtype)
+        
+#             vis_img = mark_boundaries(original_img, pred_mask, color=(1, 0, 0), mode="thick")
+            
+#             alpha = 0.3
+#             gamma = 0
+#             superimposed_map = cv2.addWeighted(colormap, alpha, original_img, (1 - alpha), gamma)
+
+#             heatmap_output = Image.fromarray(superimposed_map)
+#             heatmap_output.save(f'heatmap{i}.png')  
+            
+#             plot_anomaly(original_img, superimposed_map, vis_img, i)
+
+
+
+#             dst_im = Image.fromarray(colormap)
+#     #         dst_im = Image.fromarray(outputs[5].numpy().squeeze().astype(np.uint8)).convert('RGB')
+
+#             dst_im.save(f'output{i}.png')  # 画像を保存
+            
+#             i += 1
+            
+#         outputs = outputs.flatten()
+#         targets = targets.flatten()
+#         auroc_metric.update((outputs, targets))
 #     auroc = auroc_metric.compute()
 #     print("AUROC: {}".format(auroc))
 
