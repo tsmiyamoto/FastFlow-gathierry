@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import yaml
-from PIL import Image
 from skimage import morphology
 from skimage.segmentation import mark_boundaries
 
@@ -84,7 +83,7 @@ def train_one_epoch(dataloader, model, optimizer, epoch):
             )
 
 
-def plot_anomaly(img, heat, segment, idx, score):
+def plot_anomaly(img, heat, segment, file_name, score):
 
     fig, (ax0, ax1, ax2) = plt.subplots(ncols=3, figsize=(10, 5), facecolor="white")
     fig.suptitle(f"Anomaly Score: {10000 - score}", fontsize=16)
@@ -102,7 +101,7 @@ def plot_anomaly(img, heat, segment, idx, score):
 
     plt.axis("off")
 
-    fig.savefig(f"comp/{idx}.png")
+    fig.savefig(f"comp/{file_name}.png")
 
 
 def compute_mask(anomaly_map: np.ndarray, threshold: float, kernel_size: int = 4) -> np.ndarray:
@@ -133,14 +132,14 @@ def eval_once(dataloader, model):
 
     model.eval()
 
-    for i, data in enumerate(dataloader):
+    for data, file_name in dataloader:
         data = data.cuda()
         with torch.no_grad():
             ret = model(data)
         output = ret["anomaly_map"].cpu().detach() * 255
 
         anomaly_score = torch.mean(output[0] ** 2).cpu().detach().numpy()
-        print("mean of outputs[0]", anomaly_score)
+        print("Original Anomaly Score", anomaly_score)
 
         mask_thresh = 30
         pred_mask = compute_mask(output, mask_thresh)
@@ -156,7 +155,7 @@ def eval_once(dataloader, model):
         gamma = 0
         superimposed_map = cv2.addWeighted(colormap, alpha, original_img, (1 - alpha), gamma)
 
-        plot_anomaly(original_img, superimposed_map, vis_img, i, anomaly_score)
+        plot_anomaly(original_img, superimposed_map, vis_img, file_name, anomaly_score)
 
 
 def train(args):
