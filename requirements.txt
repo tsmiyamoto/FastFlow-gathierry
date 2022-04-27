@@ -5,3 +5,7 @@ torchvision==0.10.1
 pyyaml==6.0
 pytorch-ignite==0.2.0
 scikit-learn==0.24.2
+opencv-python
+scikit-image
+scipy
+matplotlib
