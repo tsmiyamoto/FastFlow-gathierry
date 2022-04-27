@@ -1,18 +1,14 @@
 import argparse
 import os
 
-import torch
-import yaml
-from ignite.contrib import metrics
-from PIL import Image
-import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from scipy import signal
-from skimage.segmentation import mark_boundaries
+import numpy as np
+import torch
+import yaml
+from PIL import Image
 from skimage import morphology
-from scipy.ndimage import gaussian_filter
-
+from skimage.segmentation import mark_boundaries
 
 import constants as const
 import dataset
@@ -45,7 +41,6 @@ def build_test_data_loader(args, config):
     )
     return torch.utils.data.DataLoader(
         test_dataset,
-#         batch_size=const.BATCH_SIZE,
         batch_size=1,
         shuffle=False,
         num_workers=4,
@@ -61,18 +56,12 @@ def build_model(config):
         conv3x3_only=config["conv3x3_only"],
         hidden_ratio=config["hidden_ratio"],
     )
-    print(
-        "Model A.D. Param#: {}".format(
-            sum(p.numel() for p in model.parameters() if p.requires_grad)
-        )
-    )
+    print("Model A.D. Param#: {}".format(sum(p.numel() for p in model.parameters() if p.requires_grad)))
     return model
 
 
 def build_optimizer(model):
-    return torch.optim.Adam(
-        model.parameters(), lr=const.LR, weight_decay=const.WEIGHT_DECAY
-    )
+    return torch.optim.Adam(model.parameters(), lr=const.LR, weight_decay=const.WEIGHT_DECAY)
 
 
 def train_one_epoch(dataloader, model, optimizer, epoch):
@@ -91,38 +80,31 @@ def train_one_epoch(dataloader, model, optimizer, epoch):
         loss_meter.update(loss.item())
         if (step + 1) % const.LOG_INTERVAL == 0 or (step + 1) == len(dataloader):
             print(
-                "Epoch {} - Step {}: loss = {:.3f}({:.3f})".format(
-                    epoch + 1, step + 1, loss_meter.val, loss_meter.avg
-                )
+                "Epoch {} - Step {}: loss = {:.3f}({:.3f})".format(epoch + 1, step + 1, loss_meter.val, loss_meter.avg)
             )
-            
+
+
 def plot_anomaly(img, heat, segment, idx, score):
-    
-    fig, (ax0, ax2,ax3) = plt.subplots(ncols=3, figsize=(10, 5), facecolor='white')
-    fig.suptitle(f'Anomaly Score: {10000 - score}', fontsize=16)
+
+    fig, (ax0, ax1, ax2) = plt.subplots(ncols=3, figsize=(10, 5), facecolor="white")
+    fig.suptitle(f"Anomaly Score: {10000 - score}", fontsize=16)
     ax0.set_axis_off()
-#     ax1.set_axis_off()
+    ax1.set_axis_off()
     ax2.set_axis_off()
-    
-    ax0.set_title('input image')
-#     ax1.set_title('reconstructed image')
-    ax2.set_title('heatmap ')
-    ax3.set_title('anomalies')
-    
-    ax0.imshow(img, cmap=plt.cm.gray, interpolation='nearest') 
-#     ax1.imshow(output, cmap=plt.cm.gray, interpolation='nearest')   
-    ax2.imshow(heat, cmap=plt.cm.gray, interpolation='nearest')  
-    ax3.imshow(segment, cmap=plt.cm.gray, interpolation='nearest')
-    
-    
-#     x,y = np.where(H > threshold)
-#     ax3.scatter(y,x,color='red',s=0.1) 
 
-    plt.axis('off')
-    
-    fig.savefig(f'comp/{idx}.png')
+    ax0.set_title("input image")
+    ax1.set_title("heatmap ")
+    ax2.set_title("anomalies")
 
-    
+    ax0.imshow(img, cmap=plt.cm.gray, interpolation="nearest")
+    ax1.imshow(heat, cmap=plt.cm.gray, interpolation="nearest")
+    ax2.imshow(segment, cmap=plt.cm.gray, interpolation="nearest")
+
+    plt.axis("off")
+
+    fig.savefig(f"comp/{idx}.png")
+
+
 def compute_mask(anomaly_map: np.ndarray, threshold: float, kernel_size: int = 4) -> np.ndarray:
     """Compute anomaly mask via thresholding the predicted anomaly map.
 
@@ -146,126 +128,40 @@ def compute_mask(anomaly_map: np.ndarray, threshold: float, kernel_size: int = 4
 
     return mask
 
+
 def eval_once(dataloader, model):
-   
+
     model.eval()
-    auroc_metric = metrics.ROC_AUC()
-    i = 0
-    for data, targets in dataloader:
-        data, targets = data.cuda(), targets.cuda()
+
+    for i, data in enumerate(dataloader):
+        data = data.cuda()
         with torch.no_grad():
             ret = model(data)
-        outputs = ret["anomaly_map"].cpu().detach() * 255
-        
-        probability = 0
-        print("len outputs", len(outputs))
-        for score in ret["score"]:
-            probability += torch.mean(score)
-        probability /= len(ret["score"])
-#         print("loss: ", ret["score"].mean())
-        print("prob: ", probability.cpu().detach().numpy())
-#         probs = ret["prob"]
-#         print(ret["prob"])
-#         outputs = ret["anomaly_map"].cpu().detach()
-        outputs_original = ret["anomaly_map"].cpu().detach()
-#         print(outputs_original[0].numpy().squeeze().mean(), outputs_original[0].numpy().squeeze().max(), outputs_original[0].numpy().squeeze().min())
-        anomaly_score = torch.mean(outputs[0] ** 2).cpu().detach().numpy()
-        print("mean of outputs[0]", anomaly_score)
-        print("mean without 2jou: ", torch.min(outputs[0]).cpu().detach().numpy())
-#         i = 0
+        output = ret["anomaly_map"].cpu().detach() * 255
 
-        pred_mask = compute_mask(outputs, 15)
-            
-        out_original = outputs.numpy().squeeze()
-        
-        colormap = cv2.applyColorMap(outputs.numpy().squeeze().astype(np.uint8), cv2.COLORMAP_JET)
-        print(data.size())
+        anomaly_score = torch.mean(output[0] ** 2).cpu().detach().numpy()
+        print("mean of outputs[0]", anomaly_score)
+
+        mask_thresh = 30
+        pred_mask = compute_mask(output, mask_thresh)
+
+        colormap = cv2.applyColorMap(output.numpy().squeeze().astype(np.uint8), cv2.COLORMAP_JET)
+
         original_img = data.cpu().detach().numpy().squeeze().transpose(1, 2, 0) * 255
         original_img = original_img.astype(np.uint8)
-        
+
         vis_img = mark_boundaries(original_img, pred_mask, color=(1, 0, 0), mode="thick")
-            
-        alpha = 0.3
+
+        alpha = 0.4
         gamma = 0
         superimposed_map = cv2.addWeighted(colormap, alpha, original_img, (1 - alpha), gamma)
 
-        heatmap_output = Image.fromarray(superimposed_map)
-        heatmap_output.save(f'heatmap{i}.png')  
-            
         plot_anomaly(original_img, superimposed_map, vis_img, i, anomaly_score)
-        
-        i += 1
-        
-#         for output in outputs:
-# #             output = output * 255
-#             output = outputs[i].numpy().squeeze().astype(np.uint8)
-            
-#             pred_mask = compute_mask(output, 15)
-            
-#             out_original = outputs[i].numpy().squeeze()
-            
-            
-            
-            
-# #             print("avg: ", torch.mean(outputs_original[i] ** 2))
-            
-# #             print(probs[i])
-            
-# #             print("mean score", out_original.mean())
-# #             print("min max score", out_original.min(), out_original.max())
-            
-# #             output = outputs[5].numpy().squeeze()
-# #             output = (output - output.min()) / np.ptp(output)
-# #             output = output * 255
-# #             output = output.astype(np.uint8)
-
-# #             score_map = gaussian_filter(output, sigma=4)
-
-# #             print("mean score with gaussian filter: ", score_map.mean())
-# #             print("mean score without: ", output.mean())
-
-#             colormap = cv2.applyColorMap(output, cv2.COLORMAP_JET)
-#     #         colormap = cv2.cvtColor(colormap, cv2.COLOR_BGR2GRAY)
-# #             print("colormap", colormap.shape, colormap.dtype)
-
-
-#             original_img = data[i].cpu().detach().numpy().transpose(1, 2, 0) * 255
-#             original_img = original_img.astype(np.uint8)
-#     #         original_img = cv2.cvtColor(original_img, cv2.COLOR_RGB2GRAY)
-# #             print("original", original_img.shape, original_img.dtype)
-        
-#             vis_img = mark_boundaries(original_img, pred_mask, color=(1, 0, 0), mode="thick")
-            
-#             alpha = 0.3
-#             gamma = 0
-#             superimposed_map = cv2.addWeighted(colormap, alpha, original_img, (1 - alpha), gamma)
-
-#             heatmap_output = Image.fromarray(superimposed_map)
-#             heatmap_output.save(f'heatmap{i}.png')  
-            
-#             plot_anomaly(original_img, superimposed_map, vis_img, i)
-
-
-
-#             dst_im = Image.fromarray(colormap)
-#     #         dst_im = Image.fromarray(outputs[5].numpy().squeeze().astype(np.uint8)).convert('RGB')
-
-#             dst_im.save(f'output{i}.png')  # 画像を保存
-            
-#             i += 1
-            
-#         outputs = outputs.flatten()
-#         targets = targets.flatten()
-#         auroc_metric.update((outputs, targets))
-#     auroc = auroc_metric.compute()
-#     print("AUROC: {}".format(auroc))
 
 
 def train(args):
     os.makedirs(const.CHECKPOINT_DIR, exist_ok=True)
-    checkpoint_dir = os.path.join(
-        const.CHECKPOINT_DIR, "exp%d" % len(os.listdir(const.CHECKPOINT_DIR))
-    )
+    checkpoint_dir = os.path.join(const.CHECKPOINT_DIR, "exp%d" % len(os.listdir(const.CHECKPOINT_DIR)))
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     config = yaml.safe_load(open(args.config, "r"))
@@ -303,22 +199,17 @@ def evaluate(args):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train FastFlow on MVTec-AD dataset")
-    parser.add_argument(
-        "-cfg", "--config", type=str, required=True, help="path to config file"
-    )
+    parser.add_argument("-cfg", "--config", type=str, required=True, help="path to config file")
     parser.add_argument("--data", type=str, required=True, help="path to mvtec folder")
     parser.add_argument(
         "-cat",
         "--category",
         type=str,
-        choices=const.MVTEC_CATEGORIES,
         required=True,
         help="category name in mvtec",
     )
     parser.add_argument("--eval", action="store_true", help="run eval only")
-    parser.add_argument(
-        "-ckpt", "--checkpoint", type=str, help="path to load checkpoint"
-    )
+    parser.add_argument("-ckpt", "--checkpoint", type=str, help="path to load checkpoint")
     args = parser.parse_args()
     return args
 
