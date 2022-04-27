@@ -134,19 +134,24 @@ class FastFlow(nn.Module):
 
         loss = 0
         outputs = []
+        score = []
         for i, feature in enumerate(features):
             output, log_jac_dets = self.nf_flows[i](feature)
             loss += torch.mean(
                 0.5 * torch.sum(output**2, dim=(1, 2, 3)) - log_jac_dets
             )
             outputs.append(output)
+            score.append(loss)
         ret = {"loss": loss}
+        ret["score"] = score
 
         if not self.training:
             anomaly_map_list = []
+            prob_list = []
             for output in outputs:
                 log_prob = -torch.mean(output**2, dim=1, keepdim=True) * 0.5
                 prob = torch.exp(log_prob)
+#                 print("probability: ", torch.mean(prob))
                 a_map = F.interpolate(
                     -prob,
                     size=[self.input_size, self.input_size],
@@ -154,7 +159,9 @@ class FastFlow(nn.Module):
                     align_corners=False,
                 )
                 anomaly_map_list.append(a_map)
+                prob_list.append(torch.mean(prob))
             anomaly_map_list = torch.stack(anomaly_map_list, dim=-1)
             anomaly_map = torch.mean(anomaly_map_list, dim=-1)
             ret["anomaly_map"] = anomaly_map
+#             ret["prob"] = prob_list
         return ret

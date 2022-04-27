@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 from scipy import signal
 from skimage.segmentation import mark_boundaries
 from skimage import morphology
+from scipy.ndimage import gaussian_filter
+
 
 import constants as const
 import dataset
@@ -43,7 +45,8 @@ def build_test_data_loader(args, config):
     )
     return torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=const.BATCH_SIZE,
+#         batch_size=const.BATCH_SIZE,
+        batch_size=1,
         shuffle=False,
         num_workers=4,
         drop_last=False,
@@ -151,29 +154,56 @@ def eval_once(dataloader, model):
         with torch.no_grad():
             ret = model(data)
         outputs = ret["anomaly_map"].cpu().detach() * 255
+        
+        probability = 0
+        print("len outputs", len(outputs))
+        for score in ret["score"]:
+            probability += torch.mean(score)
+        probability /= len(ret["score"])
+#         print("loss: ", ret["score"].mean())
+        print("prob: ", probability.cpu().detach().numpy())
+#         probs = ret["prob"]
+#         print(ret["prob"])
 #         outputs = ret["anomaly_map"].cpu().detach()
+        outputs_original = ret["anomaly_map"].cpu().detach()
+#         print(outputs_original[0].numpy().squeeze().mean(), outputs_original[0].numpy().squeeze().max(), outputs_original[0].numpy().squeeze().min())
+        print("mean of outputs[0]", torch.mean(outputs[0] ** 2).cpu().detach())
         i = 0
         for output in outputs:
-        
+#             output = output * 255
             output = outputs[i].numpy().squeeze().astype(np.uint8)
             
-            pred_mask = compute_mask(output, 100)
+            pred_mask = compute_mask(output, 15)
             
+            out_original = outputs[i].numpy().squeeze()
+            
+            
+#             print("avg: ", torch.mean(outputs_original[i] ** 2))
+            
+#             print(probs[i])
+            
+#             print("mean score", out_original.mean())
+#             print("min max score", out_original.min(), out_original.max())
             
 #             output = outputs[5].numpy().squeeze()
 #             output = (output - output.min()) / np.ptp(output)
 #             output = output * 255
 #             output = output.astype(np.uint8)
 
+#             score_map = gaussian_filter(output, sigma=4)
+
+#             print("mean score with gaussian filter: ", score_map.mean())
+#             print("mean score without: ", output.mean())
+
             colormap = cv2.applyColorMap(output, cv2.COLORMAP_JET)
     #         colormap = cv2.cvtColor(colormap, cv2.COLOR_BGR2GRAY)
-            print("colormap", colormap.shape, colormap.dtype)
+#             print("colormap", colormap.shape, colormap.dtype)
 
 
             original_img = data[i].cpu().detach().numpy().transpose(1, 2, 0) * 255
             original_img = original_img.astype(np.uint8)
     #         original_img = cv2.cvtColor(original_img, cv2.COLOR_RGB2GRAY)
-            print("original", original_img.shape, original_img.dtype)
+#             print("original", original_img.shape, original_img.dtype)
         
             vis_img = mark_boundaries(original_img, pred_mask, color=(1, 0, 0), mode="thick")
             
@@ -191,7 +221,6 @@ def eval_once(dataloader, model):
             dst_im = Image.fromarray(colormap)
     #         dst_im = Image.fromarray(outputs[5].numpy().squeeze().astype(np.uint8)).convert('RGB')
 
-            print(type(dst_im))  # タイプ
             dst_im.save(f'output{i}.png')  # 画像を保存
             
             i += 1
