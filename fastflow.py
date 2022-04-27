@@ -46,9 +46,9 @@ class FastFlow(nn.Module):
         hidden_ratio=1.0,
     ):
         super(FastFlow, self).__init__()
-        assert (
-            backbone_name in const.SUPPORTED_BACKBONES
-        ), "backbone_name must be one of {}".format(const.SUPPORTED_BACKBONES)
+        assert backbone_name in const.SUPPORTED_BACKBONES, "backbone_name must be one of {}".format(
+            const.SUPPORTED_BACKBONES
+        )
 
         if backbone_name in [const.BACKBONE_CAIT, const.BACKBONE_DEIT]:
             self.feature_extractor = timm.create_model(backbone_name, pretrained=True)
@@ -92,9 +92,7 @@ class FastFlow(nn.Module):
 
     def forward(self, x):
         self.feature_extractor.eval()
-        if isinstance(
-            self.feature_extractor, timm.models.vision_transformer.VisionTransformer
-        ):
+        if isinstance(self.feature_extractor, timm.models.vision_transformer.VisionTransformer):
             x = self.feature_extractor.patch_embed(x)
             cls_token = self.feature_extractor.cls_token.expand(x.shape[0], -1, -1)
             if self.feature_extractor.dist_token is None:
@@ -137,9 +135,7 @@ class FastFlow(nn.Module):
         score = []
         for i, feature in enumerate(features):
             output, log_jac_dets = self.nf_flows[i](feature)
-            loss += torch.mean(
-                0.5 * torch.sum(output**2, dim=(1, 2, 3)) - log_jac_dets
-            )
+            loss += torch.mean(0.5 * torch.sum(output ** 2, dim=(1, 2, 3)) - log_jac_dets)
             outputs.append(output)
             score.append(loss)
         ret = {"loss": loss}
@@ -149,9 +145,8 @@ class FastFlow(nn.Module):
             anomaly_map_list = []
             prob_list = []
             for output in outputs:
-                log_prob = -torch.mean(output**2, dim=1, keepdim=True) * 0.5
+                log_prob = -torch.mean(output ** 2, dim=1, keepdim=True) * 0.5
                 prob = torch.exp(log_prob)
-#                 print("probability: ", torch.mean(prob))
                 a_map = F.interpolate(
                     -prob,
                     size=[self.input_size, self.input_size],
@@ -163,5 +158,5 @@ class FastFlow(nn.Module):
             anomaly_map_list = torch.stack(anomaly_map_list, dim=-1)
             anomaly_map = torch.mean(anomaly_map_list, dim=-1)
             ret["anomaly_map"] = anomaly_map
-#             ret["prob"] = prob_list
+
         return ret
