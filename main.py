@@ -155,7 +155,7 @@ def eval_once(dataloader, model):
         gamma = 0
         superimposed_map = cv2.addWeighted(colormap, alpha, original_img, (1 - alpha), gamma)
 
-        plot_anomaly(original_img, superimposed_map, vis_img, file_name, anomaly_score)
+        plot_anomaly(original_img, superimposed_map, vis_img, file_name[0], anomaly_score)
 
 
 def train(args):
