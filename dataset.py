@@ -12,7 +12,7 @@ exts = ["jpg", "jpeg", "png", "bmp"]
 
 class MVTecDataset(torch.utils.data.Dataset):
     def __init__(self, root, category, input_size, is_train=True):
-        self.image_transform = transforms.Compose([transforms.Resize(input_size), transforms.ToTensor()])
+        self.image_transform = transforms.Compose([transforms.Resize((input_size, input_size)), transforms.ToTensor()])
         if is_train:
             self.image_files = list(
                 itertools.chain.from_iterable(
