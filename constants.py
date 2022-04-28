@@ -16,7 +16,7 @@ MVTEC_CATEGORIES = [
     "transistor",
     "wood",
     "zipper",
-    "cover"
+    "cover",
 ]
 
 BACKBONE_DEIT = "deit_base_distilled_patch16_384"
@@ -38,4 +38,4 @@ WEIGHT_DECAY = 1e-5
 
 LOG_INTERVAL = 10
 EVAL_INTERVAL = 1000000
-CHECKPOINT_INTERVAL = 10
+CHECKPOINT_INTERVAL = 50
