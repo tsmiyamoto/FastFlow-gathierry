@@ -30,7 +30,7 @@ class MVTecDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         image_file = self.image_files[index]
-        image = Image.open(image_file)
+        image = Image.open(image_file).convert("RGB")
         image = self.image_transform(image)
         file_name = os.path.splitext(os.path.basename(image_file))[0]
         if self.is_train:
